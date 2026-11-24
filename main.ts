@@ -14,6 +14,10 @@ function validate(text) {
   if (typeof text !== 'string' || text.trim().length === 0) {
     throw new Error('entry must not be only whitespace');
   }
+  // Reject CRLF / stray carriage returns: the entry must be LF-only.
+  if (text.includes('\r')) {
+    throw new Error('entry must use LF line endings, no CR characters');
+  }
   if (text.length < 1 || text.length > 400) {
     throw new Error(`entry must be 1-400 characters, got ${text.length}`);
   }
@@ -41,6 +45,12 @@ function main() {
   fs.mkdirSync(outDir, { recursive: true });
   const dest = path.join(outDir, 'entry.txt');
   fs.writeFileSync(dest, text, 'utf8');
+  // Round-trip check: read the file back and confirm it is byte-for-byte
+  // what we intended to write (catches encoding / truncation surprises).
+  const written = fs.readFileSync(dest, 'utf8');
+  if (written !== text) {
+    throw new Error(`round-trip mismatch: wrote ${text.length} chars, read back ${written.length}`);
+  }
   const bytes = Buffer.byteLength(text, 'utf8');
   console.log(`wrote ${dest} (${bytes} bytes)`);
 }
